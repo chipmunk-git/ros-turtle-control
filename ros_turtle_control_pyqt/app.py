@@ -11,6 +11,8 @@ from turtlesim.msg import Pose
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import QApplication, QWidget, QGridLayout, QPushButton
 
+from db_helper import DB, DB_CONFIG
+
 
 class TurtleControl(Node):
 
@@ -18,20 +20,31 @@ class TurtleControl(Node):
         super().__init__('turtle_pyqt')
 
         # 거북이 이동 명령 Publisher 생성
-        self.publisher_ = self.create_publisher(Twist, '/turtle1/cmd_vel', 10)
+        self.publisher_ = self.create_publisher(
+            Twist,
+            '/turtle1/cmd_vel',
+            10
+        )
 
         # 거북이 위치 Subscriber 생성
         self.subscription = self.create_subscription(
             Pose,
             '/turtle1/pose',
             self.pose_callback,
-            10)
+            10
+        )
 
         # Reset 서비스 Client 생성
-        self.client = self.create_client(Empty, '/reset')
+        self.client = self.create_client(
+            Empty,
+            '/reset'
+        )
 
         # 현재 거북이 위치
         self.current_pose = None
+
+        # 데이터베이스 객체 생성
+        self.db = DB(**DB_CONFIG)
 
     def pose_callback(self, msg):
         self.current_pose = msg
@@ -55,19 +68,23 @@ class TurtleControl(Node):
         request = Empty.Request()
         self.client.call_async(request)
 
-    def print_pose(self):
+    def save_pose(self):
         if self.current_pose is None:
             self.get_logger().info('현재 위치를 아직 수신하지 못했습니다.')
             return
 
-        self.get_logger().info(
-            'x: %.2f, y: %.2f, theta: %.2f'
-            % (
-                self.current_pose.x,
-                self.current_pose.y,
-                self.current_pose.theta
+        x = self.current_pose.x
+        y = self.current_pose.y
+        theta = self.current_pose.theta
+
+        if self.db.insert_pose(x, y, theta):
+            self.get_logger().info(
+                '저장 완료 - x: %.2f, y: %.2f, theta: %.2f'
+                % (x, y, theta)
             )
-        )
+
+        else:
+            self.get_logger().info('데이터베이스 저장 실패')
 
 
 class Window(QWidget):
@@ -131,28 +148,40 @@ class Window(QWidget):
 
         # 방향 버튼 입력
         self.btn_up.pressed.connect(
-            lambda: self.set_mouse_state('forward', True))
+            lambda: self.set_mouse_state('forward', True)
+        )
         self.btn_up.released.connect(
-            lambda: self.set_mouse_state('forward', False))
+            lambda: self.set_mouse_state('forward', False)
+        )
 
         self.btn_down.pressed.connect(
-            lambda: self.set_mouse_state('backward', True))
+            lambda: self.set_mouse_state('backward', True)
+        )
         self.btn_down.released.connect(
-            lambda: self.set_mouse_state('backward', False))
+            lambda: self.set_mouse_state('backward', False)
+        )
 
         self.btn_left.pressed.connect(
-            lambda: self.set_mouse_state('left', True))
+            lambda: self.set_mouse_state('left', True)
+        )
         self.btn_left.released.connect(
-            lambda: self.set_mouse_state('left', False))
+            lambda: self.set_mouse_state('left', False)
+        )
 
         self.btn_right.pressed.connect(
-            lambda: self.set_mouse_state('right', True))
+            lambda: self.set_mouse_state('right', True)
+        )
         self.btn_right.released.connect(
-            lambda: self.set_mouse_state('right', False))
+            lambda: self.set_mouse_state('right', False)
+        )
 
-        # Reset 및 현재 위치 출력
-        self.btn_reset.clicked.connect(self.turtle_control.reset_turtle)
-        self.btn_save.clicked.connect(self.turtle_control.print_pose)
+        # Reset 및 현재 위치 저장
+        self.btn_reset.clicked.connect(
+            self.turtle_control.reset_turtle
+        )
+        self.btn_save.clicked.connect(
+            self.turtle_control.save_pose
+        )
 
         # 누르고 있는 동안 이동 명령 반복 전송
         self.move_timer = QTimer()
@@ -188,7 +217,7 @@ class Window(QWidget):
             return
 
         elif event.key() == Qt.Key_P:
-            self.turtle_control.print_pose()
+            self.turtle_control.save_pose()
             return
 
         else:
@@ -225,6 +254,7 @@ class Window(QWidget):
         if linear_x != 0.0 or angular_z != 0.0:
             if not self.move_timer.isActive():
                 self.move_timer.start(50)
+
         else:
             self.move_timer.stop()
 
@@ -273,7 +303,7 @@ if __name__ == '__main__':
     rclpy.init()
 
     print('W: 전진 | S: 후진 | A: 왼쪽 회전 | D: 오른쪽 회전')
-    print('R: Reset | P: 현재 위치 출력')
+    print('R: Reset | P: 현재 위치 저장')
     print('마우스와 키보드 같은 방향 동시 입력: 속도 2배')
     print('종료: Ctrl+C')
 
@@ -285,7 +315,10 @@ if __name__ == '__main__':
     window.show()
 
     # Ctrl+C로 정상 종료
-    signal.signal(signal.SIGINT, lambda sig, frame: app.quit())
+    signal.signal(
+        signal.SIGINT,
+        lambda sig, frame: app.quit()
+    )
 
     result = app.exec_()
 
