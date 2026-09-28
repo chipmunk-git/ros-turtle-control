@@ -26,6 +26,7 @@ setup(
         'console_scripts': [
             'turtle_publisher = ros_turtle_control.turtle_publisher:main',
             'turtle_subscriber = ros_turtle_control.turtle_subscriber:main',
+            'turtle_reset = ros_turtle_control.turtle_reset:main',
         ],
     },
 )
