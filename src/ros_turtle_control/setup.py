@@ -24,8 +24,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'talker = ros_turtle_control.publisher_member_function:main',
-            'listener = ros_turtle_control.subscriber_member_function:main',
+            'turtle_publisher = ros_turtle_control.turtle_publisher:main',
+            'turtle_subscriber = ros_turtle_control.turtle_subscriber:main',
         ],
     },
 )
